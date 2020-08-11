@@ -22,8 +22,10 @@ class CreateOrderService {
   constructor(
     @inject('OrdersRepository')
     private ordersRepository: IOrdersRepository,
+
     @inject('ProductsRepository')
     private productsRepository: IProductsRepository,
+
     @inject('CustomersRepository')
     private customersRepository: ICustomersRepository,
   ) {}
@@ -32,34 +34,47 @@ class CreateOrderService {
     const customer = await this.customersRepository.findById(customer_id);
 
     if (!customer) {
-      throw new AppError('Invalid customer id');
+      throw new AppError('Customer does not exists');
     }
 
-    const productsIds = products.map(p => {
-      return { id: p.id };
+    const productsIDs = products.map(product => {
+      return { id: product.id };
     });
 
-    const productsArr = await this.productsRepository.findAllById(productsIds);
+    const productsItems = await this.productsRepository.findAllById(
+      productsIDs,
+    );
 
-    const parsedProducts = productsArr.map(p => {
-      const productRequested = products.find(product => product.id === p.id);
+    if (productsItems.length !== products.length) {
+      throw new AppError('Product missing');
+    }
 
-      if (p.quantity - (productRequested?.quantity || 0) < 0) {
-        throw new AppError(`sem estoque suficiente do produto ${p.name}`);
+    const productsList = productsItems.map(productItem => {
+      const productList = products.find(
+        productFind => productFind.id === productItem.id,
+      );
+
+      if (!productList) {
+        throw new AppError('Product not found');
       }
+
+      if (productItem.quantity < productList.quantity) {
+        throw new AppError('Product out of stock');
+      }
+
       return {
-        product_id: p.id,
-        price: p.price,
-        quantity: productRequested?.quantity || 0,
+        product_id: productItem.id,
+        price: productItem.price,
+        quantity: productList?.quantity || 0,
       };
     });
 
-    const order = this.ordersRepository.create({
+    const order = await this.ordersRepository.create({
       customer,
-      products: parsedProducts,
+      products: productsList,
     });
 
-    this.productsRepository.updateQuantity(products);
+    await this.productsRepository.updateQuantity(products);
 
     return order;
   }

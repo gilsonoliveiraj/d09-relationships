@@ -26,9 +26,7 @@ export default class ProductsTableCreation1596987986195
           },
           {
             name: 'quantity',
-            type: 'decimal',
-            precision: 10,
-            scale: 2,
+            type: 'integer',
           },
           {
             name: 'created_at',
